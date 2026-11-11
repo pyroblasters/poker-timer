@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Poker Timer</title>
+<style>
+:root{--bg:#0e1512;--panel:#17211c;--panel2:#1f2c26;--line:#2d3f36;--txt:#eef3ef;--mut:#93a79b;--felt:#1b6b45;--felt2:#124a2f;--gold:#f2c14e;--red:#e5534b;--blue:#4c9be8;--ok:#4cc38a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,Segoe UI,Roboto,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:18px;margin:0;margin-right:auto}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav button,.btn{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer}
+nav button.on{background:var(--gold);color:#222;border-color:var(--gold);font-weight:600}
+.btn:hover,nav button:hover{filter:brightness(1.2)}
+.btn.pri{background:var(--gold);color:#222;border-color:var(--gold);font-weight:700}
+.btn.red{background:#4a1f1d;border-color:var(--red)}
+.btn.sm{padding:4px 9px;font-size:13px}
+main{padding:16px;max-width:1500px;margin:auto}
+.view{display:none}.view.on{display:block}
+.grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px}
+@media(max-width:1000px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.card h2{margin:0 0 10px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.timer{text-align:center}
+.lvl{font-size:20px;color:var(--mut)}
+.clock{font-size:min(22vw,170px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1;margin:6px 0}
+.clock.low{color:var(--red)}
+.blinds{font-size:min(11vw,84px);font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums}
+.ante{font-size:26px;color:var(--blue);min-height:34px}
+.next{margin-top:8px;color:var(--mut);font-size:16px}
+.bar{height:8px;background:var(--panel2);border-radius:6px;overflow:hidden;margin:12px 0}
+.bar i{display:block;height:100%;background:var(--ok)}
+.ctrl{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+.ctrl .btn{font-size:16px;padding:10px 16px}
+.breakbadge{font-size:60px;font-weight:800;color:var(--ok)}
+.tablewrap{position:relative;width:100%;aspect-ratio:16/10;max-width:720px;margin:0 auto}
+.felt{position:absolute;left:12%;top:16%;width:76%;height:68%;border-radius:50%;background:radial-gradient(var(--felt),var(--felt2));border:8px solid #5a3b22;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-size:14px;color:#cfe8d8}
+.seat{position:absolute;transform:translate(-50%,-50%);background:var(--panel2);border:2px solid var(--line);border-radius:12px;padding:5px 10px;min-width:84px;text-align:center;cursor:pointer;font-size:13px}
+.seat b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px}
+.seat.empty{opacity:.35}
+.seat.out{opacity:.5;text-decoration:line-through}
+.seat.d{border-color:#fff}.seat.sb{border-color:var(--blue)}.seat.bb{border-color:var(--gold)}
+.tag{display:inline-block;font-size:11px;font-weight:800;border-radius:10px;padding:1px 6px;margin:2px 1px 0;color:#111}
+.tag.D{background:#fff}.tag.SB{background:var(--blue)}.tag.BB{background:var(--gold)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px}
+.stat{background:var(--panel2);border-radius:10px;padding:8px 10px}
+.stat small{display:block;color:var(--mut);font-size:11px;text-transform:uppercase}
+.stat span{font-size:20px;font-weight:700}
+table{width:100%;border-collapse:collapse}
+th,td{padding:6px;text-align:left;border-bottom:1px solid var(--line);font-size:14px}
+th{color:var(--mut);font-size:12px;text-transform:uppercase}
+input,select{background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:14px;max-width:100%}
+input[type=number]{width:90px}
+input[type=text]{width:180px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.row label{display:flex;gap:6px;align-items:center;color:var(--mut);font-size:14px}
+.warn{color:var(--red);font-size:13px}
+.good{color:var(--ok)}
+tr.brk td{background:#16302a}
+dialog{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:14px;padding:20px;min-width:290px}
+dialog::backdrop{background:#000a}
+.prize td:nth-child(3){color:var(--gold);font-weight:700;font-variant-numeric:tabular-nums}
+.pm{display:flex;gap:4px;align-items:center}
+.display header,.display .ctrl,.display .pm,.display .warn{display:none}
+.display main{max-width:none;padding:1.5vw}
+.display .seat{pointer-events:none;cursor:default}
+.display .clock{font-size:min(17vw,32vh)}
+.display .blinds{font-size:min(9vw,17vh)}
+.display .ante{font-size:min(3vw,5vh)}
+.display .lvl{font-size:min(2.5vw,4vh)}
+.display .next{font-size:min(2vw,3.5vh)}
+.display .stat span{font-size:min(2vw,3.5vh)}
+.display th,.display td{font-size:min(1.6vw,3vh)}
+.display .seat{font-size:min(1.3vw,2.4vh)}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="ttl">♠ Poker Timer</h1>
+  <nav id="nav"></nav>
+  <button class="btn pri" onclick="openDisplay()">📺 Écran projecteur</button>
+  <button class="btn" onclick="toggleFs()">⛶ Plein écran</button>
+</header>
+<main>
+  <section class="view" id="v-game">
+    <div class="grid">
+      <div class="card timer" id="timerCard"></div>
+      <div>
+        <div class="card" style="margin-bottom:16px">
+          <h2>Table</h2>
+          <div class="tablewrap" id="table"></div>
+          <div class="ctrl">
+            <button class="btn" onclick="moveDealer(-1)">◀ Main précédente</button>
+            <button class="btn pri" onclick="moveDealer(1)">Main suivante ▶ (N)</button>
+          </div>
+        </div>
+        <div class="card" id="prizeCard"></div>
+      </div>
+    </div>
+  </section>
+  <section class="view" id="v-blinds"></section>
+  <section class="view" id="v-players"></section>
+  <section class="view" id="v-prize"></section>
+  <section class="view" id="v-general"></section>
+</main>
+<dialog id="dlg"></dialog>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const KEY='pokerTimerV1';
+const DISPLAY=location.hash==='#display';
+if(DISPLAY)document.body.classList.add('display');
+let dwin=null;
+function push(){try{if(dwin&&!dwin.closed)dwin.postMessage({pk:1,S,endAt},'*');}catch(e){}}
+function openDisplay(){dwin=window.open(location.href.split('#')[0]+'#display','pokerDisplay','width=1280,height=720');if(!dwin)alert('Fenêtre bloquée : autorisez les pop-ups pour cette page.');else setTimeout(push,600);}
+window.addEventListener('message',e=>{const d=e.data;if(!d)return;
+  if(DISPLAY&&d.pk){S=d.S;endAt=d.endAt;renderGame();}
+  else if(!DISPLAY&&d.pkHello){dwin=e.source;push();}});
+if(DISPLAY&&window.opener)try{window.opener.postMessage({pkHello:1},'*');}catch(e){}
+const nf=n=>Math.round(n).toLocaleString('fr-FR');
+const L=(sb,bb,ante,min)=>({sb,bb,ante,min,brk:false});
+const B=min=>({sb:0,bb:0,ante:0,min,brk:true});
+function defaults(){return{
+  title:'Tournoi de poker',
+  levels:[L(25,50,0,15),L(50,100,0,15),L(75,150,0,15),L(100,200,200,15),B(10),L(150,300,300,15),L(200,400,400,15),L(300,600,600,15),L(400,800,800,15),B(10),L(500,1000,1000,15),L(600,1200,1200,15),L(800,1600,1600,15),L(1000,2000,2000,15),L(1500,3000,3000,15),L(2000,4000,4000,15)],
+  li:0,remaining:15*60,running:false,anteMode:'ante',
+  seats:Array.from({length:6},(_,i)=>({name:'Joueur '+(i+1),in:true,out:false,place:null})),
+  dealer:0,handNo:1,
+  buyin:20,fee:0,rebuyN:0,rebuyCost:20,addonN:0,addonCost:20,stack:10000,rebuyStack:10000,addonStack:10000,
+  cur:'€',round:1,payMode:'pct',payouts:[50,30,20],
+  sound:true,warn:60,autoNext:true
+};}
+let S;
+try{S=Object.assign(defaults(),JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){S=defaults();}
+S.running=false;
+let endAt=null,warned=false,tab='game';
+function save(){if(DISPLAY)return;try{if(S.running)S.remaining=left();localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}push();}
+function left(){return S.running?Math.max(0,Math.ceil((endAt-Date.now())/1000)):S.remaining;}
+function fmt(s){const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;const p=n=>String(n).padStart(2,'0');return (h?h+':'+p(m):p(m))+':'+p(x);}
+function lvl(){return S.levels[S.li]||S.levels[S.levels.length-1];}
+function lvlNum(i){return S.levels.slice(0,i+1).filter(l=>!l.brk).length;}
+
+/* ---------- sound ---------- */
+let ac;
+function beep(n=1,f=880){if(!S.sound)return;try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();for(let i=0;i<n;i++){const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.connect(g);g.connect(ac.destination);const t=ac.currentTime+i*.35;g.gain.setValueAtTime(.3,t);g.gain.exponentialRampToValueAtTime(.001,t+.3);o.start(t);o.stop(t+.3);}}catch(e){}}
+
+/* ---------- timer ---------- */
+function play(){if(S.running){S.remaining=left();S.running=false;}else{if(S.remaining<=0)return;endAt=Date.now()+S.remaining*1000;S.running=true;}save();renderGame();}
+function adj(sec){const r=Math.max(0,left()+sec);S.remaining=r;if(S.running)endAt=Date.now()+r*1000;warned=r<=S.warn;save();renderGame();}
+function goLevel(i,keepRun){if(i<0||i>=S.levels.length)return;S.li=i;S.remaining=S.levels[i].min*60;warned=false;if(S.running&&keepRun!==false)endAt=Date.now()+S.remaining*1000;else S.running=false;save();renderGame();}
+function resetLevel(){S.remaining=lvl().min*60;if(S.running)endAt=Date.now()+S.remaining*1000;warned=false;save();renderGame();}
+function levelEnd(){beep(3,660);if(S.li<S.levels.length-1&&S.autoNext){S.li++;S.remaining=S.levels[S.li].min*60;endAt=Date.now()+S.remaining*1000;warned=false;}else{S.running=false;S.remaining=0;}save();renderGame();}
+setInterval(()=>{if(!S.running)return;if(DISPLAY){renderClock();return;}const r=left();if(r<=0){levelEnd();return;}if(!warned&&S.warn>0&&r<=S.warn&&lvl().min*60>S.warn){warned=true;beep(1,520);}renderClock();},250);
+
+/* ---------- seats ---------- */
+const alive=()=>S.seats.map((s,i)=>s.in&&!s.out?i:-1).filter(i=>i>=0);
+function nextAlive(i,dir=1){const n=S.seats.length;for(let k=1;k<=n;k++){const j=((i+dir*k)%n+n)%n;const s=S.seats[j];if(s.in&&!s.out)return j;}return i;}
+function fixDealer(){const a=alive();if(a.length&&!a.includes(S.dealer))S.dealer=nextAlive(S.dealer);}
+function roles(){fixDealer();const a=alive();const r={};if(a.length<2)return r;const d=S.dealer;r[d]=['D'];if(a.length==2){r[d].push('SB');r[nextAlive(d)]=['BB'];}else{const sb=nextAlive(d),bb=nextAlive(sb);(r[sb]=r[sb]||[]).push('SB');(r[bb]=r[bb]||[]).push('BB');}return r;}
+function moveDealer(dir){fixDealer();S.dealer=nextAlive(S.dealer,dir);S.handNo+=dir;if(S.handNo<1)S.handNo=1;save();renderGame();}
+function setSeatCount(n){n=Math.max(2,Math.min(12,+n||2));while(S.seats.length<n)S.seats.push({name:'Joueur '+(S.seats.length+1),in:true,out:false,place:null});S.seats.length=n;if(S.dealer>=n)S.dealer=0;save();renderAll();}
+function eliminate(i){const a=alive();if(!a.includes(i))return;S.seats[i].out=true;S.seats[i].place=a.length;if(a.length-1===1){const w=alive()[0];S.seats[w].place=1;}save();renderAll();}
+function reinstate(i){S.seats[i].out=false;S.seats[i].place=null;if(alive().length>1)S.seats.forEach(s=>{if(s.place===1)s.place=null;});save();renderAll();}
+function shuffleSeats(){const names=S.seats.map(s=>s.name);for(let i=names.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[names[i],names[j]]=[names[j],names[i]];}S.seats.forEach((s,i)=>s.name=names[i]);save();renderAll();}
+function randDealer(){const a=alive();if(a.length){S.dealer=a[Math.floor(Math.random()*a.length)];save();renderAll();}}
+function newTournament(){if(!confirm('Réinitialiser le tournoi (timer, niveau, éliminations) ? Les réglages sont conservés.'))return;S.seats.forEach(s=>{s.out=false;s.place=null;});S.running=false;S.li=0;S.remaining=S.levels[0].min*60;S.handNo=1;S.dealer=0;S.rebuyN=0;S.addonN=0;warned=false;save();renderAll();}
+
+/* ---------- prize ---------- */
+function prize(){
+  const entries=S.seats.filter(s=>s.in).length;
+  const gross=entries*S.buyin+S.rebuyN*S.rebuyCost+S.addonN*S.addonCost;
+  const fee=gross*S.fee/100,net=gross-fee;
+  const step=Math.max(.01,+S.round||1);
+  let rows=S.payouts.map(v=>S.payMode==='pct'?Math.floor(net*v/100/step)*step:+v);
+  const sumPct=S.payouts.reduce((a,b)=>a+(+b||0),0);
+  if(S.payMode==='pct'&&Math.abs(sumPct-100)<1e-9&&rows.length){rows[0]+=net-rows.reduce((a,b)=>a+b,0);}
+  const chips=entries*S.stack+S.rebuyN*S.rebuyStack+S.addonN*S.addonStack;
+  return{entries,gross,fee,net,rows,sumPct,total:rows.reduce((a,b)=>a+b,0),chips};
+}
+const money=v=>(Math.round(v*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:2})+' '+S.cur;
+function placeName(r){const s=S.seats.find(s=>s.in&&s.place===r);return s?esc(s.name):'';}
+
+/* ---------- render: game ---------- */
+function anteText(l){if(l.brk||S.anteMode==='none'||!l.ante)return'';return (S.anteMode==='bba'?'Big Blind Ante ':'Ante ')+nf(l.ante);}
+function lvlText(l){return l.brk?'Pause '+l.min+' min':nf(l.sb)+' / '+nf(l.bb)+(anteText(l)?' · '+anteText(l):'');}
+function renderClock(){const el=$('#clk');if(!el)return;const r=left();el.textContent=fmt(r);el.classList.toggle('low',r<=S.warn&&r>0);const tot=lvl().min*60;$('#barfill').style.width=(tot?100*(1-r/tot):0)+'%';const pb=$('#playbtn');if(pb)pb.textContent=S.running?'⏸ Pause':'▶ Démarrer';}
+function renderGame(){
+  const l=lvl(),nx=S.levels[S.li+1];
+  $('#ttl').textContent='♠ '+S.title;document.title=S.title;
+  $('#timerCard').innerHTML=`
+    <div class="lvl">${l.brk?'PAUSE':'Niveau '+lvlNum(S.li)} <small>· ${S.li+1}/${S.levels.length}</small></div>
+    <div class="clock" id="clk"></div>
+    <div class="bar"><i id="barfill"></i></div>
+    ${l.brk?'<div class="breakbadge">☕ Pause</div>':`<div class="blinds">${nf(l.sb)} / ${nf(l.bb)}</div><div class="ante">${anteText(l)}</div>`}
+    <div class="next">${nx?'Prochain : '+lvlText(nx)+(nx.brk?'':' ('+nx.min+' min)'):'Dernier niveau'}</div>
+    <div class="ctrl">
+      <button class="btn" onclick="goLevel(S.li-1)">⏮ Niv. préc.</button>
+      <button class="btn pri" id="playbtn" onclick="play()"></button>
+      <button class="btn" onclick="goLevel(S.li+1)">Niv. suiv. ⏭</button>
+    </div>
+    <div class="ctrl">
+      <button class="btn sm" onclick="adj(-60)">−1 min</button>
+      <button class="btn sm" onclick="adj(60)">+1 min</button>
+      <button class="btn sm" onclick="resetLevel()">↺ Relancer le niveau</button>
+    </div>`;
+  renderClock();renderTable();renderPrizeCard();
+}
+function renderTable(){
+  const n=S.seats.length,r=roles();const p=prize(),al=alive().length;
+  let h=`<div class="felt"><div><b style="font-size:16px">Main n° ${S.handNo}</b></div><div>${al} joueur${al>1?'s':''} en jeu</div></div>`;
+  S.seats.forEach((s,i)=>{
+    const a=(Math.PI/2)+i*2*Math.PI/n,x=50+44*Math.cos(a),y=50+43*Math.sin(a);
+    const t=(r[i]||[]);const cls=['seat',!s.in?'empty':'',s.out?'out':'',t.includes('D')?'d':'',t.includes('SB')?'sb':'',t.includes('BB')?'bb':''].join(' ');
+    h+=`<div class="${cls}" style="left:${x}%;top:${y}%" onclick="seatDlg(${i})"><b>${s.in?esc(s.name):'(vide)'}</b>${t.map(k=>`<span class="tag ${k}">${k==='D'?'DEALER':k}</span>`).join('')}</div>`;
+  });
+  $('#table').innerHTML=h;
+}
+function renderPrizeCard(){
+  const p=prize(),al=alive().length;
+  const avg=al?p.chips/al:0,bb=lvl().bb;
+  $('#prizeCard').innerHTML=`<h2>Cashprize</h2>
+   <div class="stats">
+    <div class="stat"><small>Cagnotte</small><span>${money(p.net)}</span></div>
+    <div class="stat"><small>Joueurs</small><span>${al} / ${p.entries}</span></div>
+    <div class="stat"><small>Tapis moyen</small><span>${nf(avg)}</span></div>
+    <div class="stat"><small>Moy. en BB</small><span>${bb?(avg/bb).toFixed(1):'–'}</span></div>
+   </div>
+   <table class="prize"><tr><th>Place</th><th>Joueur</th><th>Gain</th></tr>
+   ${p.rows.map((v,i)=>`<tr><td>${i+1}${i?'e':'er'}</td><td>${placeName(i+1)||'<span style="color:var(--mut)">—</span>'}</td><td>${money(v)}</td></tr>`).join('')}</table>
+   <div class="row" style="margin-bottom:0">
+     <span class="pm">Re-buys <button class="btn sm" onclick="inc('rebuyN',-1)">−</button><b>${S.rebuyN}</b><button class="btn sm" onclick="inc('rebuyN',1)">+</button></span>
+     <span class="pm">Add-ons <button class="btn sm" onclick="inc('addonN',-1)">−</button><b>${S.addonN}</b><button class="btn sm" onclick="inc('addonN',1)">+</button></span>
+   </div>
+   ${p.sumPct!==100&&S.payMode==='pct'?`<div class="warn">Les % totalisent ${p.sumPct}% (≠100%).</div>`:''}`;
+}
+function inc(k,d){S[k]=Math.max(0,S[k]+d);save();renderAll();}
+
+/* ---------- seat dialog ---------- */
+function seatDlg(i){
+  const s=S.seats[i],d=$('#dlg');
+  d.innerHTML=`<h3 style="margin-top:0">Siège ${i+1}</h3>
+   <div class="row"><input type="text" id="sn" value="${esc(s.name)}"></div>
+   <div class="row"><label><input type="checkbox" id="si" ${s.in?'checked':''}> Siège occupé</label></div>
+   <div class="row">
+     ${s.in&&!s.out?`<button class="btn red" onclick="seatAct(${i},'out')">Éliminer</button>`:''}
+     ${s.out?`<button class="btn" onclick="seatAct(${i},'back')">Réintégrer</button>`:''}
+     ${s.in&&!s.out?`<button class="btn" onclick="seatAct(${i},'dealer')">Dealer ici</button>`:''}
+   </div>
+   <div class="row"><button class="btn pri" onclick="seatAct(${i},'ok')">OK</button><button class="btn" onclick="$('#dlg').close()">Annuler</button></div>`;
+  d.showModal();
+}
+function seatAct(i,a){const s=S.seats[i];s.name=$('#sn').value.trim()||('Joueur '+(i+1));s.in=$('#si').checked;
+  $('#dlg').close();if(a==='out')eliminate(i);else if(a==='back')reinstate(i);else{if(a==='dealer')S.dealer=i;save();renderAll();}}
+
+/* ---------- render: settings ---------- */
+function setLv(i,f,v){S.levels[i][f]=Math.max(f==='min'?1:0,+v||0);if(i===S.li&&f==='min'&&!S.running)S.remaining=S.levels[i].min*60;save();renderAll();}
+function addLevel(brk){const last=[...S.levels].reverse().find(l=>!l.brk)||{sb:25,bb:50,ante:0,min:15};
+  if(brk)S.levels.push(B(10));else{const r=v=>{const x=v*1.5;const m=Math.pow(10,Math.max(0,Math.floor(Math.log10(x))-1));return Math.round(x/m)*m;};S.levels.push(L(r(last.sb),r(last.bb),S.anteMode==='none'?0:r(last.bb),last.min));}
+  save();renderAll();}
+function delLevel(i){if(S.levels.length<=1)return;S.levels.splice(i,1);if(S.li>=S.levels.length)S.li=S.levels.length-1;save();renderAll();}
+function moveLv(i,d){const j=i+d;if(j<0||j>=S.levels.length)return;[S.levels[i],S.levels[j]]=[S.levels[j],S.levels[i]];if(S.li===i)S.li=j;else if(S.li===j)S.li=i;save();renderAll();}
+function allMin(){const v=+$('#allmin').value;if(v>0){S.levels.filter(l=>!l.brk).forEach(l=>l.min=v);S.remaining=lvl().min*60;save();renderAll();}}
+function autoAnte(){const p=+$('#antepct').value;S.levels.filter(l=>!l.brk).forEach(l=>l.ante=Math.round(l.bb*p/100));save();renderAll();}
+function resetLevels(){if(confirm('Remettre la structure de blindes par défaut ?')){S.levels=defaults().levels;S.li=0;S.remaining=S.levels[0].min*60;S.running=false;save();renderAll();}}
+function renderBlinds(){
+  $('#v-blinds').innerHTML=`<div class="card"><h2>Structure des blindes</h2>
+  <div class="row"><label>Ante :
+    <select onchange="S.anteMode=this.value;save();renderAll()">
+      <option value="none" ${S.anteMode==='none'?'selected':''}>Aucune</option>
+      <option value="ante" ${S.anteMode==='ante'?'selected':''}>Ante classique (chaque joueur)</option>
+      <option value="bba" ${S.anteMode==='bba'?'selected':''}>Big Blind Ante (payée par la BB)</option></select></label>
+    <label>Durée de tous les niveaux <input type="number" id="allmin" value="15" min="1"> min</label><button class="btn sm" onclick="allMin()">Appliquer</button>
+    <label>Ante auto <input type="number" id="antepct" value="100" min="0"> % de la BB</label><button class="btn sm" onclick="autoAnte()">Appliquer</button></div>
+  <table><tr><th>#</th><th>Petite blinde</th><th>Grosse blinde</th><th>Ante</th><th>Durée (min)</th><th></th></tr>
+  ${S.levels.map((l,i)=>l.brk?`<tr class="brk"><td>☕</td><td colspan="3">Pause</td><td><input type="number" min="1" value="${l.min}" onchange="setLv(${i},'min',this.value)"></td><td>${lvBtns(i)}</td></tr>`
+   :`<tr ${i===S.li?'style="outline:2px solid var(--gold)"':''}><td>${lvlNum(i)}</td>
+     <td><input type="number" min="0" value="${l.sb}" onchange="setLv(${i},'sb',this.value)"></td>
+     <td><input type="number" min="0" value="${l.bb}" onchange="setLv(${i},'bb',this.value)"></td>
+     <td><input type="number" min="0" value="${l.ante}" ${S.anteMode==='none'?'disabled':''} onchange="setLv(${i},'ante',this.value)"></td>
+     <td><input type="number" min="1" value="${l.min}" onchange="setLv(${i},'min',this.value)"></td><td>${lvBtns(i)}</td></tr>`).join('')}</table>
+  <div class="row"><button class="btn" onclick="addLevel(false)">+ Niveau</button><button class="btn" onclick="addLevel(true)">+ Pause</button><button class="btn red" onclick="resetLevels()">Structure par défaut</button></div></div>`;
+}
+const lvBtns=i=>`<button class="btn sm" onclick="goLevel(${i});show('game')">Aller</button> <button class="btn sm" onclick="moveLv(${i},-1)">↑</button> <button class="btn sm" onclick="moveLv(${i},1)">↓</button> <button class="btn sm red" onclick="delLevel(${i})">✕</button>`;
+
+function renderPlayers(){
+  $('#v-players').innerHTML=`<div class="card"><h2>Joueurs & table</h2>
+  <div class="row"><label>Nombre de sièges <input type="number" min="2" max="12" value="${S.seats.length}" onchange="setSeatCount(this.value)"></label>
+   <button class="btn" onclick="shuffleSeats()">🎲 Tirage au sort des places</button><button class="btn" onclick="randDealer()">🎲 Dealer au hasard</button>
+   <button class="btn red" onclick="newTournament()">Nouveau tournoi</button></div>
+  <table><tr><th>Siège</th><th>Présent</th><th>Nom</th><th>Statut</th><th>Dealer</th></tr>
+  ${S.seats.map((s,i)=>`<tr><td>${i+1}</td><td><input type="checkbox" ${s.in?'checked':''} onchange="S.seats[${i}].in=this.checked;save();renderAll()"></td>
+   <td><input type="text" value="${esc(s.name)}" oninput="S.seats[${i}].name=this.value;save();renderGame()"></td>
+   <td>${!s.in?'—':s.out?`<span class="warn">Éliminé (${s.place}e)</span> <button class="btn sm" onclick="reinstate(${i})">Réintégrer</button>`:s.place===1?'<span class="good">🏆 Vainqueur</span>':`<span class="good">En jeu</span> <button class="btn sm red" onclick="eliminate(${i})">Éliminer</button>`}</td>
+   <td><input type="radio" name="dl" ${S.dealer===i?'checked':''} onchange="S.dealer=${i};save();renderGame()"></td></tr>`).join('')}</table></div>`;
+}
+
+function setPay(i,v){S.payouts[i]=+v||0;save();renderAll();}
+function preset(a){S.payMode='pct';S.payouts=a.slice();save();renderAll();}
+function renderPrize(){
+  const p=prize();
+  $('#v-prize').innerHTML=`<div class="grid"><div class="card"><h2>Prix & tapis</h2>
+   <div class="row"><label>Buy-in <input type="number" min="0" step="any" value="${S.buyin}" onchange="S.buyin=+this.value||0;save();renderAll()"></label>
+    <label>Tapis de départ <input type="number" min="0" value="${S.stack}" onchange="S.stack=+this.value||0;save();renderAll()"></label></div>
+   <div class="row"><label>Re-buy : prix <input type="number" min="0" step="any" value="${S.rebuyCost}" onchange="S.rebuyCost=+this.value||0;save();renderAll()"></label>
+    <label>tapis <input type="number" min="0" value="${S.rebuyStack}" onchange="S.rebuyStack=+this.value||0;save();renderAll()"></label>
+    <label>nombre <input type="number" min="0" value="${S.rebuyN}" onchange="S.rebuyN=Math.max(0,+this.value||0);save();renderAll()"></label></div>
+   <div class="row"><label>Add-on : prix <input type="number" min="0" step="any" value="${S.addonCost}" onchange="S.addonCost=+this.value||0;save();renderAll()"></label>
+    <label>tapis <input type="number" min="0" value="${S.addonStack}" onchange="S.addonStack=+this.value||0;save();renderAll()"></label>
+    <label>nombre <input type="number" min="0" value="${S.addonN}" onchange="S.addonN=Math.max(0,+this.value||0);save();renderAll()"></label></div>
+   <div class="row"><label>Frais / commission <input type="number" min="0" max="100" step="any" value="${S.fee}" onchange="S.fee=+this.value||0;save();renderAll()"> %</label>
+    <label>Devise <input type="text" style="width:60px" value="${esc(S.cur)}" onchange="S.cur=this.value;save();renderAll()"></label>
+    <label>Arrondi <input type="number" min="0.01" step="any" value="${S.round}" onchange="S.round=+this.value||1;save();renderAll()"></label></div>
+   <div class="stats" style="margin-top:14px">
+    <div class="stat"><small>Entrées</small><span>${p.entries}</span></div>
+    <div class="stat"><small>Total collecté</small><span>${money(p.gross)}</span></div>
+    <div class="stat"><small>Frais</small><span>${money(p.fee)}</span></div>
+    <div class="stat"><small>À distribuer</small><span>${money(p.net)}</span></div></div></div>
+  <div class="card"><h2>Répartition des gains</h2>
+   <div class="row"><label>Mode <select onchange="S.payMode=this.value;save();renderAll()"><option value="pct" ${S.payMode==='pct'?'selected':''}>Pourcentages</option><option value="fix" ${S.payMode==='fix'?'selected':''}>Montants fixes</option></select></label></div>
+   <div class="row">Préréglages :
+    <button class="btn sm" onclick="preset([100])">100</button><button class="btn sm" onclick="preset([60,40])">60/40</button>
+    <button class="btn sm" onclick="preset([50,30,20])">50/30/20</button><button class="btn sm" onclick="preset([40,30,20,10])">40/30/20/10</button>
+    <button class="btn sm" onclick="preset([35,25,18,12,10])">35/25/18/12/10</button></div>
+   <table><tr><th>Place</th><th>${S.payMode==='pct'?'%':S.cur}</th><th>Gain</th><th></th></tr>
+   ${S.payouts.map((v,i)=>`<tr><td>${i+1}${i?'e':'er'}</td><td><input type="number" min="0" step="any" value="${v}" onchange="setPay(${i},this.value)"></td><td style="color:var(--gold);font-weight:700">${money(p.rows[i])}</td>
+    <td><button class="btn sm red" onclick="S.payouts.splice(${i},1);save();renderAll()">✕</button></td></tr>`).join('')}</table>
+   <div class="row"><button class="btn" onclick="S.payouts.push(0);save();renderAll()">+ Place payée</button></div>
+   ${S.payMode==='pct'?`<div class="${p.sumPct===100?'good':'warn'}">Total : ${p.sumPct}% ${p.sumPct===100?'✓':'(devrait faire 100%)'}</div>`
+     :`<div class="${Math.abs(p.total-p.net)<.005?'good':'warn'}">Total distribué : ${money(p.total)} / ${money(p.net)} ${Math.abs(p.total-p.net)<.005?'✓':''}</div>`}
+  </div></div>`;
+}
+
+function renderGeneral(){
+  $('#v-general').innerHTML=`<div class="card"><h2>Général</h2>
+   <div class="row"><label>Titre <input type="text" style="width:280px" value="${esc(S.title)}" onchange="S.title=this.value||'Poker Timer';save();renderGame()"></label></div>
+   <div class="row"><label><input type="checkbox" ${S.sound?'checked':''} onchange="S.sound=this.checked;save();if(this.checked)beep()"> Sons</label>
+    <label>Alerte avant la fin <input type="number" min="0" value="${S.warn}" onchange="S.warn=+this.value||0;save()"> s</label>
+    <label><input type="checkbox" ${S.autoNext?'checked':''} onchange="S.autoNext=this.checked;save()"> Enchaîner automatiquement le niveau suivant</label></div>
+   <div class="row"><button class="btn" onclick="exportJson()">⬇ Exporter la config</button>
+    <label class="btn" style="cursor:pointer">⬆ Importer<input type="file" accept=".json" hidden onchange="importJson(this.files[0])"></label>
+    <button class="btn red" onclick="if(confirm('Tout effacer et revenir aux réglages par défaut ?')){S=defaults();save();renderAll();}">Tout réinitialiser</button></div>
+   <p style="color:var(--mut);font-size:13px">Raccourcis : <b>Espace</b> démarrer/pause · <b>←/→</b> niveau préc./suiv. · <b>N</b> main suivante · <b>F</b> plein écran. Tout est sauvegardé automatiquement dans le navigateur.</p></div>`;
+}
+function exportJson(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'}));a.download='poker-timer.json';a.click();}
+function importJson(f){if(!f)return;f.text().then(t=>{try{S=Object.assign(defaults(),JSON.parse(t));S.running=false;save();renderAll();}catch(e){alert('Fichier invalide');}});}
+
+/* ---------- nav ---------- */
+const TABS=[['game','▶ Jeu'],['blinds','Blindes'],['players','Joueurs'],['prize','Cashprize'],['general','Réglages']];
+function show(t){tab=t;document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id==='v-'+t));$('#nav').innerHTML=TABS.map(([k,n])=>`<button class="${k===t?'on':''}" onclick="show('${k}')">${n}</button>`).join('');renderAll();}
+function renderAll(){renderGame();if(tab==='blinds')renderBlinds();if(tab==='players')renderPlayers();if(tab==='prize')renderPrize();if(tab==='general')renderGeneral();}
+function toggleFs(){if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen();}
+document.addEventListener('keydown',e=>{if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)||$('#dlg').open)return;
+  if(DISPLAY){if(e.key==='f'||e.key==='F')toggleFs();return;}
+  if(e.code==='Space'){e.preventDefault();if(tab==='game')play();}
+  else if(e.key==='ArrowRight')goLevel(S.li+1);else if(e.key==='ArrowLeft')goLevel(S.li-1);
+  else if(e.key==='n'||e.key==='N')moveDealer(1);else if(e.key==='f'||e.key==='F')toggleFs();});
+window.addEventListener('beforeunload',save);
+if(DISPLAY)document.addEventListener('dblclick',toggleFs);
+show('game');
+</script>
+</body>
+</html>
