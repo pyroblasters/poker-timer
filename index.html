@@ -131,14 +131,14 @@ function defaults(){return{
   dealer:0,handNo:1,
   buyin:20,fee:0,rebuyN:0,rebuyCost:20,addonN:0,addonCost:20,stack:10000,rebuyStack:10000,addonStack:10000,
   cur:'€',round:1,payMode:'pct',payouts:[50,30,20],
-  sound:true,warn:60,autoNext:true
+  sound:true,warn:60,autoNext:true,gapSec:10,gapUntil:0
 };}
 let S;
 try{S=Object.assign(defaults(),JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){S=defaults();}
-S.running=false;
+S.running=false;S.gapUntil=0;
 let endAt=null,warned=false,tab='game';
 function save(){if(DISPLAY)return;try{if(S.running)S.remaining=left();localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}push();}
-function left(){return S.running?Math.max(0,Math.ceil((endAt-Date.now())/1000)):S.remaining;}
+function left(){if(S.gapUntil)return S.remaining;return S.running?Math.max(0,Math.ceil((endAt-Date.now())/1000)):S.remaining;}
 function fmt(s){const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;const p=n=>String(n).padStart(2,'0');return (h?h+':'+p(m):p(m))+':'+p(x);}
 function lvl(){return S.levels[S.li]||S.levels[S.levels.length-1];}
 function lvlNum(i){return S.levels.slice(0,i+1).filter(l=>!l.brk).length;}
@@ -148,12 +148,12 @@ let ac;
 function beep(n=1,f=880){if(!S.sound)return;try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();for(let i=0;i<n;i++){const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.connect(g);g.connect(ac.destination);const t=ac.currentTime+i*.35;g.gain.setValueAtTime(.3,t);g.gain.exponentialRampToValueAtTime(.001,t+.3);o.start(t);o.stop(t+.3);}}catch(e){}}
 
 /* ---------- timer ---------- */
-function play(){if(S.running){S.remaining=left();S.running=false;}else{if(S.remaining<=0)return;endAt=Date.now()+S.remaining*1000;S.running=true;}save();renderGame();}
-function adj(sec){const r=Math.max(0,left()+sec);S.remaining=r;if(S.running)endAt=Date.now()+r*1000;warned=r<=S.warn;save();renderGame();}
-function goLevel(i,keepRun){if(i<0||i>=S.levels.length)return;S.li=i;S.remaining=S.levels[i].min*60;warned=false;if(S.running&&keepRun!==false)endAt=Date.now()+S.remaining*1000;else S.running=false;save();renderGame();}
-function resetLevel(){S.remaining=lvl().min*60;if(S.running)endAt=Date.now()+S.remaining*1000;warned=false;save();renderGame();}
-function levelEnd(){beep(3,660);if(S.li<S.levels.length-1&&S.autoNext){S.li++;S.remaining=S.levels[S.li].min*60;endAt=Date.now()+S.remaining*1000;warned=false;}else{S.running=false;S.remaining=0;}save();renderGame();}
-setInterval(()=>{if(!S.running)return;if(DISPLAY){renderClock();return;}const r=left();if(r<=0){levelEnd();return;}if(!warned&&S.warn>0&&r<=S.warn&&lvl().min*60>S.warn){warned=true;beep(1,520);}renderClock();},250);
+function play(){if(S.running){S.remaining=left();S.running=false;S.gapUntil=0;}else{if(S.remaining<=0)return;endAt=Date.now()+S.remaining*1000;S.running=true;}save();renderGame();}
+function adj(sec){const r=Math.max(0,left()+sec);S.remaining=r;if(S.gapUntil){S.gapUntil=0;}if(S.running)endAt=Date.now()+r*1000;warned=r<=S.warn;save();renderGame();}
+function goLevel(i,keepRun){if(i<0||i>=S.levels.length)return;S.li=i;S.gapUntil=0;S.remaining=S.levels[i].min*60;warned=false;if(S.running&&keepRun!==false)endAt=Date.now()+S.remaining*1000;else S.running=false;save();renderGame();}
+function resetLevel(){S.gapUntil=0;S.remaining=lvl().min*60;if(S.running)endAt=Date.now()+S.remaining*1000;warned=false;save();renderGame();}
+function levelEnd(){beep(3,660);if(S.li<S.levels.length-1&&S.autoNext){S.li++;S.remaining=S.levels[S.li].min*60;warned=false;if(S.gapSec>0)S.gapUntil=Date.now()+S.gapSec*1000;else endAt=Date.now()+S.remaining*1000;}else{S.running=false;S.remaining=0;}save();renderGame();}
+setInterval(()=>{if(!S.running)return;if(DISPLAY){renderClock();return;}if(S.gapUntil){if(Date.now()>=S.gapUntil){S.gapUntil=0;endAt=Date.now()+S.remaining*1000;save();renderGame();}else renderClock();return;}const r=left();if(r<=0){levelEnd();return;}if(!warned&&S.warn>0&&r<=S.warn&&lvl().min*60>S.warn){warned=true;beep(1,520);}renderClock();},250);
 
 /* ---------- seats ---------- */
 const alive=()=>S.seats.map((s,i)=>s.in&&!s.out?i:-1).filter(i=>i>=0);
@@ -166,7 +166,7 @@ function eliminate(i){const a=alive();if(!a.includes(i))return;S.seats[i].out=tr
 function reinstate(i){S.seats[i].out=false;S.seats[i].place=null;if(alive().length>1)S.seats.forEach(s=>{if(s.place===1)s.place=null;});save();renderAll();}
 function shuffleSeats(){const names=S.seats.map(s=>s.name);for(let i=names.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[names[i],names[j]]=[names[j],names[i]];}S.seats.forEach((s,i)=>s.name=names[i]);save();renderAll();}
 function randDealer(){const a=alive();if(a.length){S.dealer=a[Math.floor(Math.random()*a.length)];save();renderAll();}}
-function newTournament(){if(!confirm('Réinitialiser le tournoi (timer, niveau, éliminations) ? Les réglages sont conservés.'))return;S.seats.forEach(s=>{s.out=false;s.place=null;});S.running=false;S.li=0;S.remaining=S.levels[0].min*60;S.handNo=1;S.dealer=0;S.rebuyN=0;S.addonN=0;warned=false;save();renderAll();}
+function newTournament(){if(!confirm('Lancer une nouvelle partie avec les mêmes joueurs ? Timer, niveau, éliminations et re-buys repartent à zéro ; noms, blindes et réglages sont conservés.'))return;S.gapUntil=0;S.seats.forEach(s=>{s.out=false;s.place=null;});S.running=false;S.li=0;S.remaining=S.levels[0].min*60;S.handNo=1;S.dealer=0;S.rebuyN=0;S.addonN=0;warned=false;save();renderAll();}
 
 /* ---------- prize ---------- */
 function prize(){
@@ -186,14 +186,14 @@ function placeName(r){const s=S.seats.find(s=>s.in&&s.place===r);return s?esc(s.
 /* ---------- render: game ---------- */
 function anteText(l){if(l.brk||S.anteMode==='none'||!l.ante)return'';return (S.anteMode==='bba'?'Big Blind Ante ':'Ante ')+nf(l.ante);}
 function lvlText(l){return l.brk?'Pause '+l.min+' min':nf(l.sb)+' / '+nf(l.bb)+(anteText(l)?' · '+anteText(l):'');}
-function renderClock(){const el=$('#clk');if(!el)return;const r=left();el.textContent=fmt(r);el.classList.toggle('low',r<=S.warn&&r>0);const tot=lvl().min*60;$('#barfill').style.width=(tot?100*(1-r/tot):0)+'%';const pb=$('#playbtn');if(pb)pb.textContent=S.running?'⏸ Pause':'▶ Démarrer';}
+function renderClock(){const el=$('#clk');if(!el)return;const r=left();el.textContent=fmt(r);el.classList.toggle('low',r<=S.warn&&r>0);const tot=lvl().min*60;$('#barfill').style.width=(tot?100*(1-r/tot):0)+'%';const g=$('#gap');if(g){const d=S.gapUntil-Date.now();g.textContent=S.gapUntil&&d>0?'Changement de niveau… reprise dans '+Math.ceil(d/1000)+' s':'';}const pb=$('#playbtn');if(pb)pb.textContent=S.running?'⏸ Pause':'▶ Démarrer';}
 function renderGame(){
   const l=lvl(),nx=S.levels[S.li+1];
   $('#ttl').textContent='♠ '+S.title;document.title=S.title;
   $('#timerCard').innerHTML=`
     <div class="lvl">${l.brk?'PAUSE':'Niveau '+lvlNum(S.li)} <small>· ${S.li+1}/${S.levels.length}</small></div>
     <div class="clock" id="clk"></div>
-    <div class="bar"><i id="barfill"></i></div>
+    <div class="bar"><i id="barfill"></i></div><div class="ante" id="gap" style="color:var(--ok)"></div>
     ${l.brk?'<div class="breakbadge">☕ Pause</div>':`<div class="blinds">${nf(l.sb)} / ${nf(l.bb)}</div><div class="ante">${anteText(l)}</div>`}
     <div class="next">${nx?'Prochain : '+lvlText(nx)+(nx.brk?'':' ('+nx.min+' min)'):'Dernier niveau'}</div>
     <div class="ctrl">
@@ -205,6 +205,7 @@ function renderGame(){
       <button class="btn sm" onclick="adj(-60)">−1 min</button>
       <button class="btn sm" onclick="adj(60)">+1 min</button>
       <button class="btn sm" onclick="resetLevel()">↺ Relancer le niveau</button>
+      <button class="btn sm pri" onclick="newTournament()">🔄 Nouvelle partie (mêmes joueurs)</button>
     </div>`;
   renderClock();renderTable();renderPrizeCard();
 }
@@ -289,7 +290,7 @@ function renderPlayers(){
   $('#v-players').innerHTML=`<div class="card"><h2>Joueurs & table</h2>
   <div class="row"><label>Nombre de sièges <input type="number" min="2" max="12" value="${S.seats.length}" onchange="setSeatCount(this.value)"></label>
    <button class="btn" onclick="shuffleSeats()">🎲 Tirage au sort des places</button><button class="btn" onclick="randDealer()">🎲 Dealer au hasard</button>
-   <button class="btn red" onclick="newTournament()">Nouveau tournoi</button></div>
+   <button class="btn red" onclick="newTournament()">🔄 Nouvelle partie (mêmes joueurs)</button></div>
   <table><tr><th>Siège</th><th>Présent</th><th>Nom</th><th>Statut</th><th>Dealer</th></tr>
   ${S.seats.map((s,i)=>`<tr><td>${i+1}</td><td><input type="checkbox" ${s.in?'checked':''} onchange="S.seats[${i}].in=this.checked;save();renderAll()"></td>
    <td><input type="text" value="${esc(s.name)}" oninput="S.seats[${i}].name=this.value;save();renderGame()"></td>
@@ -338,6 +339,7 @@ function renderGeneral(){
    <div class="row"><label>Titre <input type="text" style="width:280px" value="${esc(S.title)}" onchange="S.title=this.value||'Poker Timer';save();renderGame()"></label></div>
    <div class="row"><label><input type="checkbox" ${S.sound?'checked':''} onchange="S.sound=this.checked;save();if(this.checked)beep()"> Sons</label>
     <label>Alerte avant la fin <input type="number" min="0" value="${S.warn}" onchange="S.warn=+this.value||0;save()"> s</label>
+    <label>Pause entre les niveaux <input type="number" min="0" value="${S.gapSec}" onchange="S.gapSec=Math.max(0,+this.value||0);save()"> s</label>
     <label><input type="checkbox" ${S.autoNext?'checked':''} onchange="S.autoNext=this.checked;save()"> Enchaîner automatiquement le niveau suivant</label></div>
    <div class="row"><button class="btn" onclick="exportJson()">⬇ Exporter la config</button>
     <label class="btn" style="cursor:pointer">⬆ Importer<input type="file" accept=".json" hidden onchange="importJson(this.files[0])"></label>
